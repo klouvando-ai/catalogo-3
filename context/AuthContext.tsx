@@ -1,9 +1,11 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
+import { api } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, pass: string) => boolean;
+  login: (username: string, pass: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -15,29 +17,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const storedUser = localStorage.getItem('kavins_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
-  const login = (username: string, pass: string): boolean => {
-    let role: UserRole | null = null;
-
-    if (username === 'kavinsadmin' && pass === 'admka2026') {
-      role = UserRole.ADMIN;
-    } else if (username === 'repre.kavins' && pass === 'repre@kavins') {
-      role = UserRole.REPRESENTATIVE;
-    } else if (username === 'sacoleira.kavins' && pass === 'kavins@sacoleira') {
-      role = UserRole.SACOLEIRA;
-    }
-
-    if (role) {
-      const newUser = { username, role };
-      setUser(newUser);
-      localStorage.setItem('kavins_user', JSON.stringify(newUser));
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const userData = await api.auth.login({ username, password });
+      setUser(userData);
+      localStorage.setItem('kavins_user', JSON.stringify(userData));
       return true;
+    } catch (e) {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
@@ -54,8 +45,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth error');
   return context;
 };

@@ -16,11 +16,24 @@ export interface Color {
   hex: string;
 }
 
-// Interface para a Referência Base (Master Data)
+export interface Category {
+  id: string;
+  name: string;
+  orderIndex: number;
+}
+
+export interface UserAccount {
+  id: string;
+  username: string;
+  password?: string;
+  role: UserRole;
+  createdAt: number;
+}
+
 export interface ReferenceDefinition {
   id: string;
-  code: string; // O código da referência (ex: 001)
-  name: string; // Nome interno/genérico (ex: Vestido Longo)
+  code: string;
+  name: string;
   category: string;
   sizeRange: SizeRange;
   priceRepresentative: number;
@@ -29,8 +42,6 @@ export interface ReferenceDefinition {
   createdAt: number;
 }
 
-// Interface antiga mantida para compatibilidade visual, 
-// mas agora será populada dinamicamente via ReferenceDefinition
 export interface ProductVariant {
   id: string;
   name?: string; 
@@ -43,20 +54,15 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
-  name: string; // Título do anúncio/foto
+  name: string;
   description: string;
   fabric: string;
-  category: string; // Categoria principal do anúncio
+  category: string;
   images: string[]; 
   coverImageIndex: number;
   isFeatured: boolean;
-  
-  // Novo campo: IDs das referências vinculadas
   referenceIds: string[];
-  
-  // Campo legado/calculado: variants populadas para o frontend usar
   variants: ProductVariant[];
-  
   createdAt: number;
 }
 

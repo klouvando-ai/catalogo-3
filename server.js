@@ -17,14 +17,12 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
-// Garantir diretório de uploads
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
 app.use('/api/uploads', express.static(UPLOADS_DIR));
 
-// Configuração da Conexão MySQL
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
   port: process.env.DB_PORT || 3306,
@@ -36,12 +34,11 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Inicialização do Banco de Dados
 async function initDB() {
   try {
     const connection = await pool.getConnection();
-    console.log(`Conectado ao MySQL (${process.env.DB_NAME}) com sucesso.`);
-
+    
+    // Tabela Referências
     await connection.query(`
       CREATE TABLE IF NOT EXISTS \`references\` (
         id VARCHAR(36) PRIMARY KEY,
@@ -56,6 +53,7 @@ async function initDB() {
       )
     `);
 
+    // Tabela Produtos
     await connection.query(`
       CREATE TABLE IF NOT EXISTS \`products\` (
         id VARCHAR(36) PRIMARY KEY,
@@ -71,120 +69,170 @@ async function initDB() {
       )
     `);
 
+    // Tabela Categorias
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS \`categories\` (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        orderIndex INT DEFAULT 0
+      )
+    `);
+
+    // Tabela Usuários
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS \`users\` (
+        id VARCHAR(36) PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password VARCHAR(100) NOT NULL,
+        role VARCHAR(20) NOT NULL,
+        createdAt BIGINT
+      )
+    `);
+
+    // Dados iniciais de Categorias se estiver vazio
+    const [cats] = await connection.query('SELECT COUNT(*) as count FROM categories');
+    if (cats[0].count === 0) {
+      const initialCats = ['Lançamentos', 'Vestidos', 'Conjuntos', 'Blusas', 'Calças', 'Camisetas', 'Promoção'];
+      for (let i = 0; i < initialCats.length; i++) {
+        await connection.query('INSERT INTO categories (id, name, orderIndex) VALUES (?, ?, ?)', [crypto.randomUUID(), initialCats[i], i]);
+      }
+    }
+
+    // Usuário admin inicial se estiver vazio
+    const [usrs] = await connection.query('SELECT COUNT(*) as count FROM users');
+    if (usrs[0].count === 0) {
+      await connection.query('INSERT INTO users (id, username, password, role, createdAt) VALUES (?, ?, ?, ?, ?)', 
+        [crypto.randomUUID(), 'kavinsadmin', 'admka2026', 'ADMIN', Date.now()]);
+    }
+
     connection.release();
-    console.log('Tabelas verificadas/criadas corretamente.');
+    console.log('Banco de dados pronto.');
   } catch (err) {
-    console.error('ERRO AO CONECTAR NO BANCO:', err.message);
+    console.error('Erro DB:', err.message);
   }
 }
 
 initDB();
 
-// Configuração do Multer para Uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+// Endpoints Categorias
+app.get('/api/categories', async (req, res) => {
+  const [rows] = await pool.query('SELECT * FROM categories ORDER BY orderIndex ASC');
+  res.json(rows);
+});
+
+app.post('/api/categories', async (req, res) => {
+  const { id, name, orderIndex } = req.body;
+  await pool.query('INSERT INTO categories (id, name, orderIndex) VALUES (?, ?, ?)', [id, name, orderIndex]);
+  res.status(201).json(req.body);
+});
+
+app.put('/api/categories/:id', async (req, res) => {
+  const { name, orderIndex } = req.body;
+  await pool.query('UPDATE categories SET name=?, orderIndex=? WHERE id=?', [name, orderIndex, req.params.id]);
+  res.json({ success: true });
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  await pool.query('DELETE FROM categories WHERE id=?', [req.params.id]);
+  res.json({ success: true });
+});
+
+// Endpoints Usuários
+app.get('/api/users', async (req, res) => {
+  const [rows] = await pool.query('SELECT id, username, role, createdAt FROM users ORDER BY createdAt DESC');
+  res.json(rows);
+});
+
+app.post('/api/users', async (req, res) => {
+  const { id, username, password, role, createdAt } = req.body;
+  await pool.query('INSERT INTO users (id, username, password, role, createdAt) VALUES (?, ?, ?, ?, ?)', [id, username, password, role, createdAt]);
+  res.status(201).json(req.body);
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  const { username, password, role } = req.body;
+  if (password) {
+    await pool.query('UPDATE users SET username=?, password=?, role=? WHERE id=?', [username, password, role, req.params.id]);
+  } else {
+    await pool.query('UPDATE users SET username=?, role=? WHERE id=?', [username, role, req.params.id]);
+  }
+  res.json({ success: true });
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  await pool.query('DELETE FROM users WHERE id=?', [req.params.id]);
+  res.json({ success: true });
+});
+
+// Login Database-backed
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  const [rows] = await pool.query('SELECT username, role FROM users WHERE username=? AND password=?', [username, password]);
+  if (rows.length > 0) {
+    res.json(rows[0]);
+  } else {
+    res.status(401).json({ error: 'Invalido' });
   }
 });
-const upload = multer({ storage });
 
-// API: Referências
+// Outros Endpoints (Referências e Produtos seguem a mesma lógica anterior)
 app.get('/api/references', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
+  res.json(rows);
 });
 
 app.post('/api/references', async (req, res) => {
-  try {
-    const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
-    await pool.query(
-      'INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), createdAt]
-    );
-    res.status(201).json(req.body);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
+  await pool.query('INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), createdAt]);
+  res.status(201).json(req.body);
 });
 
 app.put('/api/references/:id', async (req, res) => {
-  try {
-    const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
-    await pool.query(
-      'UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
-      [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), req.params.id]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
+  await pool.query('UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
+    [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), req.params.id]);
+  res.json({ success: true });
 });
 
 app.delete('/api/references/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM \`references\` WHERE id=?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  await pool.query('DELETE FROM \`references\` WHERE id=?', [req.params.id]);
+  res.json({ success: true });
 });
 
-// API: Produtos
 app.get('/api/products', async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM \`products\` ORDER BY isFeatured DESC, createdAt DESC');
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const [rows] = await pool.query('SELECT * FROM \`products\` ORDER BY isFeatured DESC, createdAt DESC');
+  res.json(rows);
 });
 
 app.post('/api/products', async (req, res) => {
-  try {
-    const { id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
-    await pool.query(
-      'INSERT INTO \`products\` (id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), createdAt]
-    );
-    res.status(201).json(req.body);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
+  await pool.query('INSERT INTO \`products\` (id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), createdAt]);
+  res.status(201).json(req.body);
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  try {
-    const { name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds } = req.body;
-    await pool.query(
-      'UPDATE \`products\` SET name=?, description=?, fabric=?, category=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
-      [name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), req.params.id]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds } = req.body;
+  await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, category=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
+    [name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), req.params.id]);
+  res.json({ success: true });
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-  try {
-    await pool.query('DELETE FROM \`products\` WHERE id=?', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  await pool.query('DELETE FROM \`products\` WHERE id=?', [req.params.id]);
+  res.json({ success: true });
 });
 
-// Upload de Imagem
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
+});
+const upload = multer({ storage });
+
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
-  const url = `/api/uploads/${req.file.filename}`;
-  res.json({ url });
+  if (!req.file) return res.status(400).json({ error: 'Sem arquivo' });
+  res.json({ url: `/api/uploads/${req.file.filename}` });
 });
 
-app.listen(PORT, () => console.log(`Backend rodando em http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Rodando na porta ${PORT}`));
