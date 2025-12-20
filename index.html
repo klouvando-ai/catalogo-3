@@ -3,8 +3,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kavin's Catalog</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Kavin's Catalogo</title>
+    <!-- Favicon: Vestido Azul -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 2c1.1 0 2 .9 2 2v1h-4V4c0-1.1.9-2 2-2zm6.2 5.5l-1.4-1.4C16.1 5.4 15.1 5 14 5h-4c-1.1 0-2.1.4-2.8 1.1L5.8 7.5C5.3 8 5 8.7 5 9.5V20c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V9.5c0-.8-.3-1.5-.8-2zm-3.2 4.5l-1 5h-4l-1-5h6z'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -22,6 +24,16 @@
         }
       }
     </script>
+    <style>
+      /* Esconder scrollbar mantendo funcionalidade */
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      /* Ajustes finos para mobile */
+      @media (max-width: 640px) {
+        body { font-size: 14px; }
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -44,7 +56,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-50 text-gray-900 font-sans antialiased">
+  <body class="bg-gray-50 text-gray-900 font-sans antialiased selection:bg-secondary selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

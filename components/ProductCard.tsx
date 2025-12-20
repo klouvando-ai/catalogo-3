@@ -11,15 +11,12 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { user } = useAuth();
 
-  // Determine pricing display based on role and LINKED REFERENCES
   const getPriceRange = () => {
     if (!user) return null;
-
     let minPrice = Infinity;
     let maxPrice = -Infinity;
     let hasPrice = false;
 
-    // Use variants (which are hydrated with Reference data in DataContext)
     product.variants.forEach(v => {
       const price = user.role === UserRole.SACOLEIRA ? v.priceSacoleira : v.priceRepresentative;
       if (price) {
@@ -31,69 +28,64 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
     if (!hasPrice) return null;
     if (minPrice === maxPrice) return `R$ ${minPrice.toFixed(2)}`;
-    return `R$ ${minPrice.toFixed(2)} - R$ ${maxPrice.toFixed(2)}`;
+    return `R$ ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`;
   };
 
   const coverImage = product.images[product.coverImageIndex] || product.images[0];
   const priceDisplay = getPriceRange();
-
-  // Collect all unique size ranges available
   const sizesAvailable = Array.from(new Set(product.variants.map(v => v.sizeRange)));
-  
-  // Collect all unique references codes
   const references = Array.from(new Set(product.variants.map(v => v.reference)));
 
-  // Display 'Camisetas' if the legacy category is 'Macacões'
-  const displayCategory = product.category === 'Macacões' ? 'Camisetas' : product.category;
-
   return (
-    <Link to={`/product/${product.id}`} className="group block bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300">
-      <div className="aspect-portrait w-full relative bg-gray-200 overflow-hidden">
+    <Link to={`/product/${product.id}`} className="group block bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
+      <div className="aspect-portrait w-full relative bg-gray-100 overflow-hidden">
         {coverImage ? (
           <img
             src={coverImage}
             alt={product.name}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">Sem Imagem</div>
+          <div className="flex items-center justify-center h-full text-gray-400 text-xs">Sem Imagem</div>
         )}
         
         {product.isFeatured && (
-          <div className="absolute top-2 left-2 bg-secondary text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">
+          <div className="absolute top-2 left-2 bg-secondary text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider rounded-sm shadow-sm">
             Destaque
           </div>
         )}
       </div>
 
-      <div className="p-4">
-        <div className="mb-1 text-xs text-gray-500 uppercase tracking-wide">
-            {displayCategory}
+      <div className="p-3 md:p-4">
+        <div className="mb-0.5 text-[10px] text-secondary font-bold uppercase tracking-wide truncate">
+            {product.category}
         </div>
-        <h3 className="text-lg font-medium text-gray-900 group-hover:text-secondary truncate">
+        <h3 className="text-sm md:text-lg font-medium text-gray-900 group-hover:text-secondary truncate leading-tight">
           {product.name}
         </h3>
         
-        <div className="mt-2 flex flex-wrap gap-1">
-             {sizesAvailable.map(size => (
-                 <span key={size} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+        <div className="mt-1.5 flex flex-wrap gap-1">
+             {sizesAvailable.slice(0, 2).map(size => (
+                 <span key={size} className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[9px] md:text-xs font-semibold">
                      {size}
                  </span>
              ))}
+             {sizesAvailable.length > 2 && <span className="text-[9px] text-gray-400">+{sizesAvailable.length - 2}</span>}
         </div>
 
-        <div className="mt-1 text-xs text-gray-400 truncate">
-             {references.length > 0 ? `Ref: ${references.join(' / ')}` : 'Sem ref vinculada'}
+        <div className="mt-1 text-[9px] md:text-xs text-gray-400 truncate opacity-75">
+             Ref: {references.join(' / ')}
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-2.5 pt-2 border-t border-gray-50 flex items-center justify-between">
            {user ? (
-             <span className="text-lg font-bold text-gray-900">
+             <span className="text-sm md:text-lg font-bold text-gray-900">
                 {priceDisplay || "Consulte"}
              </span>
            ) : (
-             <span className="text-sm text-secondary font-medium hover:underline">
-               Faça login para ver preços
+             <span className="text-[10px] md:text-xs text-secondary font-bold uppercase">
+               Ver preço
              </span>
            )}
         </div>
