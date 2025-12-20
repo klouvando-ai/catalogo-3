@@ -26,11 +26,11 @@ app.use('/api/uploads', express.static(UPLOADS_DIR));
 
 // Configuração da Conexão MySQL
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'Benvindo199380@',
+  database: process.env.DB_NAME || 'catalogo',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -40,7 +40,7 @@ const pool = mysql.createPool({
 async function initDB() {
   try {
     const connection = await pool.getConnection();
-    console.log('Conectado ao MySQL com sucesso.');
+    console.log(`Conectado ao MySQL (${process.env.DB_NAME}) com sucesso.`);
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS \`references\` (
@@ -72,9 +72,9 @@ async function initDB() {
     `);
 
     connection.release();
-    console.log('Tabelas verificadas/criadas.');
+    console.log('Tabelas verificadas/criadas corretamente.');
   } catch (err) {
-    console.error('Erro ao inicializar banco de dados:', err.message);
+    console.error('ERRO AO CONECTAR NO BANCO:', err.message);
   }
 }
 
