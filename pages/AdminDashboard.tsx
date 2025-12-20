@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { UserRole, Product, SizeRange, Color, ReferenceDefinition, Category, UserAccount } from '../types';
 import { SIZE_OPTIONS } from '../constants';
-import { Trash2, Plus, X, Upload, Edit, ShoppingBag, Search, Tag, Users, Filter } from 'lucide-react';
+import { Trash2, Plus, X, Upload, Edit, ShoppingBag, Search, Tag, Users, Star, CheckCircle2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -271,7 +271,7 @@ const ReferenceManager: React.FC<{
 };
 
 const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
-    const { addProduct, updateProduct, getProduct, references, categories } = useData();
+    const { addProduct, updateProduct, deleteProduct, getProduct, references, categories } = useData();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [name, setName] = useState('');
@@ -279,6 +279,8 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
     const [description, setDescription] = useState('');
     const [fabric, setFabric] = useState('');
     const [images, setImages] = useState<string[]>([]);
+    const [coverImageIndex, setCoverImageIndex] = useState(0);
+    const [isFeatured, setIsFeatured] = useState(false);
     const [selectedRefIds, setSelectedRefIds] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -287,9 +289,14 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
         if (productId) {
             const p = getProduct(productId);
             if (p) { 
-                setName(p.name); setCategory(p.category); 
-                setImages(p.images); setSelectedRefIds(p.referenceIds || []); 
-                setDescription(p.description || ''); setFabric(p.fabric || '');
+                setName(p.name); 
+                setCategory(p.category); 
+                setImages(p.images); 
+                setSelectedRefIds(p.referenceIds || []); 
+                setDescription(p.description || ''); 
+                setFabric(p.fabric || '');
+                setCoverImageIndex(p.coverImageIndex || 0);
+                setIsFeatured(p.isFeatured || false);
             }
         }
     }, [productId, getProduct, categories]);
@@ -302,6 +309,19 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
         }
     };
 
+    const handleRemoveImage = (index: number) => {
+        setImages(prev => prev.filter((_, i) => i !== index));
+        if (coverImageIndex === index) setCoverImageIndex(0);
+        else if (coverImageIndex > index) setCoverImageIndex(prev => prev - 1);
+    };
+
+    const handleDeleteProduct = async () => {
+        if (productId && confirm('Tem certeza que deseja excluir este anúncio permanentemente?')) {
+            await deleteProduct(productId);
+            navigate('/');
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if(!name || images.length === 0 || selectedRefIds.length === 0) {
@@ -311,9 +331,16 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
         setIsSaving(true);
         const p: Product = { 
             id: productId || crypto.randomUUID(), 
-            name, description, fabric, category, images, 
-            coverImageIndex: 0, isFeatured: false, referenceIds: selectedRefIds, 
-            variants: [], createdAt: Date.now() 
+            name, 
+            description, 
+            fabric, 
+            category, 
+            images, 
+            coverImageIndex, 
+            isFeatured, 
+            referenceIds: selectedRefIds, 
+            variants: [], 
+            createdAt: Date.now() 
         };
         productId ? await updateProduct(p) : await addProduct(p);
         navigate('/');
@@ -321,9 +348,35 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
 
     return (
         <form onSubmit={handleSubmit} className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border space-y-5">
-            <h2 className="text-xl font-bold font-serif">{productId ? 'Editar' : 'Publicar'} na Vitrine</h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold font-serif">{productId ? 'Editar' : 'Publicar'} na Vitrine</h2>
+                {productId && (
+                    <button 
+                        type="button" 
+                        onClick={handleDeleteProduct}
+                        className="flex items-center gap-2 text-red-500 hover:bg-red-50 px-3 py-2 rounded-xl transition-colors font-bold text-sm border border-red-100"
+                    >
+                        <Trash2 size={18} />
+                        <span className="hidden sm:inline">Excluir Anúncio</span>
+                    </button>
+                )}
+            </div>
             
             <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div>
+                        <div className="font-bold text-sm">Produto em Destaque</div>
+                        <div className="text-[10px] text-gray-500">Exibido no topo da página e com selo especial</div>
+                    </div>
+                    <button 
+                        type="button" 
+                        onClick={() => setIsFeatured(!isFeatured)}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${isFeatured ? 'bg-secondary' : 'bg-gray-300'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isFeatured ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                </div>
+
                 <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Título Comercial do Produto" className="w-full border p-3 rounded-xl text-sm" />
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -337,15 +390,33 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
             </div>
 
             <div className="space-y-3">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Fotos (Toque para remover)</span>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">Fotos (Toque para selecionar a principal)</span>
+                </div>
+                <div className="flex flex-wrap gap-3">
                     {images.map((img, i) => (
                         <div key={i} className="relative group">
-                            <img src={img} className="w-20 h-28 object-cover rounded-xl shadow-sm border border-gray-100" />
-                            <button type="button" onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"><X size={12}/></button>
+                            <div 
+                                onClick={() => setCoverImageIndex(i)}
+                                className={`w-24 h-32 cursor-pointer relative rounded-xl overflow-hidden border-2 transition-all ${coverImageIndex === i ? 'border-secondary shadow-lg scale-105' : 'border-gray-100 opacity-80 hover:opacity-100'}`}
+                            >
+                                <img src={img} className="w-full h-full object-cover" />
+                                {coverImageIndex === i && (
+                                    <div className="absolute top-1 right-1 bg-secondary text-white rounded-full p-0.5 shadow-md">
+                                        <Star size={12} fill="currentColor" />
+                                    </div>
+                                )}
+                                <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[8px] font-black uppercase ${coverImageIndex === i ? 'bg-secondary text-white' : 'bg-black/20 text-white opacity-0 group-hover:opacity-100'}`}>
+                                    {coverImageIndex === i ? 'Foto Principal' : 'Definir Principal'}
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => handleRemoveImage(i)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:scale-110 transition-transform"><X size={12}/></button>
                         </div>
                     ))}
-                    <div onClick={() => fileInputRef.current?.click()} className="w-20 h-28 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors"><Upload className="text-gray-300" size={24}/></div>
+                    <div onClick={() => fileInputRef.current?.click()} className="w-24 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors text-gray-400">
+                        <Upload size={24}/>
+                        <span className="text-[8px] font-bold mt-1">ADD FOTO</span>
+                    </div>
                     <input type="file" ref={fileInputRef} onChange={handleUpload} multiple className="hidden" />
                 </div>
             </div>
@@ -355,7 +426,10 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-52 overflow-y-auto p-3 bg-accent/30 rounded-2xl border border-gray-100 no-scrollbar">
                     {references.map(ref => (
                         <div key={ref.id} onClick={() => setSelectedRefIds(prev => prev.includes(ref.id) ? prev.filter(x => x !== ref.id) : [...prev, ref.id])} className={`p-2.5 border rounded-xl text-[10px] font-bold cursor-pointer transition-all ${selectedRefIds.includes(ref.id) ? 'bg-primary text-white border-primary shadow-md scale-95' : 'bg-white text-gray-600 border-gray-200 shadow-sm opacity-60'}`}>
-                            <div className="truncate">{ref.code}</div>
+                            <div className="flex justify-between items-start">
+                                <div className="truncate">{ref.code}</div>
+                                {selectedRefIds.includes(ref.id) && <CheckCircle2 size={10} className="text-secondary" />}
+                            </div>
                             <div className="truncate opacity-75 font-normal">{ref.name}</div>
                         </div>
                     ))}
