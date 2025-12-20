@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import mysql from 'mysql2/promise';
 
 dotenv.config();
 
@@ -14,24 +15,70 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3002;
-const DATA_DIR = path.join(__dirname, 'data');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
-// Garantir diretórios
-[DATA_DIR, UPLOADS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
-
-const REFS_FILE = path.join(DATA_DIR, 'references.json');
-const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json');
-
-// Helpers de persistência
-const readJSON = (file) => fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : [];
-const writeJSON = (file, data) => fs.writeFileSync(file, JSON.stringify(data, null, 2));
+// Garantir diretório de uploads
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
 app.use('/api/uploads', express.static(UPLOADS_DIR));
+
+// Configuração da Conexão MySQL
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Inicialização do Banco de Dados
+async function initDB() {
+  try {
+    const connection = await pool.getConnection();
+    console.log('Conectado ao MySQL com sucesso.');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS \`references\` (
+        id VARCHAR(36) PRIMARY KEY,
+        code VARCHAR(50) NOT NULL,
+        name VARCHAR(255),
+        category VARCHAR(100),
+        sizeRange VARCHAR(50),
+        priceRepresentative DECIMAL(10, 2),
+        priceSacoleira DECIMAL(10, 2),
+        colors JSON,
+        createdAt BIGINT
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS \`products\` (
+        id VARCHAR(36) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        fabric VARCHAR(255),
+        category VARCHAR(100),
+        images JSON,
+        coverImageIndex INT DEFAULT 0,
+        isFeatured BOOLEAN DEFAULT FALSE,
+        referenceIds JSON,
+        createdAt BIGINT
+      )
+    `);
+
+    connection.release();
+    console.log('Tabelas verificadas/criadas.');
+  } catch (err) {
+    console.error('Erro ao inicializar banco de dados:', err.message);
+  }
+}
+
+initDB();
 
 // Configuração do Multer para Uploads
 const storage = multer.diskStorage({
@@ -43,46 +90,94 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// API Endpoints: Referências
-app.get('/api/references', (req, res) => res.json(readJSON(REFS_FILE)));
-app.post('/api/references', (req, res) => {
-  const refs = readJSON(REFS_FILE);
-  refs.push(req.body);
-  writeJSON(REFS_FILE, refs);
-  res.status(201).json(req.body);
-});
-app.put('/api/references/:id', (req, res) => {
-  let refs = readJSON(REFS_FILE);
-  refs = refs.map(r => r.id === req.params.id ? { ...r, ...req.body } : r);
-  writeJSON(REFS_FILE, refs);
-  res.json({ success: true });
-});
-app.delete('/api/references/:id', (req, res) => {
-  let refs = readJSON(REFS_FILE);
-  refs = refs.filter(r => r.id !== req.params.id);
-  writeJSON(REFS_FILE, refs);
-  res.json({ success: true });
+// API: Referências
+app.get('/api/references', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// API Endpoints: Produtos
-app.get('/api/products', (req, res) => res.json(readJSON(PRODUCTS_FILE)));
-app.post('/api/products', (req, res) => {
-  const products = readJSON(PRODUCTS_FILE);
-  products.push(req.body);
-  writeJSON(PRODUCTS_FILE, products);
-  res.status(201).json(req.body);
+app.post('/api/references', async (req, res) => {
+  try {
+    const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
+    await pool.query(
+      'INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), createdAt]
+    );
+    res.status(201).json(req.body);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
-app.put('/api/products/:id', (req, res) => {
-  let products = readJSON(PRODUCTS_FILE);
-  products = products.map(p => p.id === req.params.id ? { ...p, ...req.body } : p);
-  writeJSON(PRODUCTS_FILE, products);
-  res.json({ success: true });
+
+app.put('/api/references/:id', async (req, res) => {
+  try {
+    const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
+    await pool.query(
+      'UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
+      [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
-app.delete('/api/products/:id', (req, res) => {
-  let products = readJSON(PRODUCTS_FILE);
-  products = products.filter(p => p.id !== req.params.id);
-  writeJSON(PRODUCTS_FILE, products);
-  res.json({ success: true });
+
+app.delete('/api/references/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM \`references\` WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API: Produtos
+app.get('/api/products', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM \`products\` ORDER BY isFeatured DESC, createdAt DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/products', async (req, res) => {
+  try {
+    const { id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
+    await pool.query(
+      'INSERT INTO \`products\` (id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), createdAt]
+    );
+    res.status(201).json(req.body);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const { name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds } = req.body;
+    await pool.query(
+      'UPDATE \`products\` SET name=?, description=?, fabric=?, category=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
+      [name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), req.params.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM \`products\` WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Upload de Imagem
