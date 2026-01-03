@@ -193,6 +193,18 @@ const ReferenceManager: React.FC<{
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleRemoveColor = (e: React.MouseEvent, index: number) => {
+        e.stopPropagation();
+        setColors(prev => prev.filter((_, i) => i !== index));
+        if (editingColorIndex === index) {
+            setEditingColorIndex(null);
+            setNewColorName('');
+            setNewColorHex('#000000');
+        } else if (editingColorIndex !== null && editingColorIndex > index) {
+            setEditingColorIndex(prev => prev !== null ? prev - 1 : null);
+        }
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         const refData: ReferenceDefinition = {
@@ -225,22 +237,34 @@ const ReferenceManager: React.FC<{
                     </div>
                     
                     <div className="pt-3">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Cores desta referência</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase block mb-2">Cores desta referência (Toque para editar)</span>
                         <div className="flex flex-wrap gap-2 mb-3">
                             {colors.map((c, i) => (
-                                <div key={i} onClick={() => { setNewColorName(c.name); setNewColorHex(c.hex); setEditingColorIndex(i); }} className={`cursor-pointer flex items-center bg-gray-50 border rounded-full pl-1 pr-3 py-1 text-[10px] font-bold ${editingColorIndex === i ? 'ring-2 ring-secondary' : ''}`}>
-                                    <span className="w-4 h-4 rounded-full mr-2 shadow-sm border border-white" style={{backgroundColor: c.hex}}></span> {c.name}
+                                <div 
+                                    key={i} 
+                                    onClick={() => { setNewColorName(c.name); setNewColorHex(c.hex); setEditingColorIndex(i); }} 
+                                    className={`cursor-pointer flex items-center bg-gray-50 border rounded-full pl-1 pr-1.5 py-1 text-[10px] font-bold transition-all group ${editingColorIndex === i ? 'ring-2 ring-secondary border-secondary' : 'hover:border-gray-300'}`}
+                                >
+                                    <span className="w-4 h-4 rounded-full mr-2 shadow-sm border border-white flex-shrink-0" style={{backgroundColor: c.hex}}></span> 
+                                    <span className="mr-1">{c.name}</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={(e) => handleRemoveColor(e, i)}
+                                        className="p-0.5 rounded-full hover:bg-red-500 hover:text-white text-gray-400 transition-colors"
+                                    >
+                                        <X size={10} />
+                                    </button>
                                 </div>
                             ))}
                         </div>
                         <div className="flex gap-2">
                             <input type="color" value={newColorHex} onChange={e => setNewColorHex(e.target.value)} className="h-10 w-12 border rounded-xl p-1 bg-white cursor-pointer" />
                             <input type="text" value={newColorName} onChange={e => setNewColorName(e.target.value)} placeholder="Cor" className="flex-1 border p-2 rounded-xl text-sm" />
-                            <button type="button" onClick={() => { if(newColorName) { if(editingColorIndex !== null) { const u = [...colors]; u[editingColorIndex]={name:newColorName, hex:newColorHex}; setColors(u); setEditingColorIndex(null); } else { setColors([...colors, {name:newColorName, hex:newColorHex}]); } setNewColorName(''); } }} className="bg-secondary text-white p-2.5 rounded-xl shadow-sm"><Plus size={20}/></button>
+                            <button type="button" onClick={() => { if(newColorName) { if(editingColorIndex !== null) { const u = [...colors]; u[editingColorIndex]={name:newColorName, hex:newColorHex}; setColors(u); setEditingColorIndex(null); } else { setColors([...colors, {name:newColorName, hex:newColorHex}]); } setNewColorName(''); } }} className="bg-secondary text-white p-2.5 rounded-xl shadow-sm hover:scale-105 transition-transform"><Plus size={20}/></button>
                         </div>
                     </div>
                     <button type="submit" className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-sm shadow-md mt-4 transition-transform active:scale-95">{editingId ? 'Salvar Alterações' : 'Cadastrar Referência'}</button>
-                    {editingId && <button type="button" onClick={resetForm} className="w-full text-gray-400 text-xs py-2">Cancelar</button>}
+                    {editingId && <button type="button" onClick={resetForm} className="w-full text-gray-400 text-xs py-2">Cancelar Edição</button>}
                 </form>
             </div>
             <div className="lg:col-span-2 space-y-3">
@@ -303,9 +327,14 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files) return;
+        // Fix: Explicitly cast file to File to prevent 'unknown' type error during iteration
         for (const file of Array.from(e.target.files)) {
-            const url = await api.upload(file);
-            setImages(prev => [...prev, url]);
+            try {
+                const url = await api.upload(file as File);
+                setImages(prev => [...prev, url]);
+            } catch (err) {
+                alert('Erro ao enviar imagem. Certifique-se de que é um formato válido (JPG, PNG ou WEBP).');
+            }
         }
     };
 
@@ -391,22 +420,23 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
 
             <div className="space-y-3">
                 <div className="flex justify-between items-end">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">Fotos (Toque para selecionar a principal)</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase">Fotos (Suporta JPG, PNG, WEBP - Toque para escolher principal)</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                     {images.map((img, i) => (
                         <div key={i} className="relative group">
                             <div 
                                 onClick={() => setCoverImageIndex(i)}
-                                className={`w-24 h-32 cursor-pointer relative rounded-xl overflow-hidden border-2 transition-all ${coverImageIndex === i ? 'border-secondary shadow-lg scale-105' : 'border-gray-100 opacity-80 hover:opacity-100'}`}
+                                title="Clique para definir como foto principal"
+                                className={`w-24 h-32 cursor-pointer relative rounded-xl overflow-hidden border-2 transition-all ${coverImageIndex === i ? 'border-secondary shadow-lg scale-105 ring-2 ring-secondary/20' : 'border-gray-100 opacity-80 hover:opacity-100'}`}
                             >
-                                <img src={img} className="w-full h-full object-cover" />
+                                <img src={img} className="w-full h-full object-cover" alt={`Imagem ${i}`} />
                                 {coverImageIndex === i && (
                                     <div className="absolute top-1 right-1 bg-secondary text-white rounded-full p-0.5 shadow-md">
                                         <Star size={12} fill="currentColor" />
                                     </div>
                                 )}
-                                <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[8px] font-black uppercase ${coverImageIndex === i ? 'bg-secondary text-white' : 'bg-black/20 text-white opacity-0 group-hover:opacity-100'}`}>
+                                <div className={`absolute bottom-0 left-0 right-0 py-1 text-center text-[8px] font-black uppercase transition-opacity ${coverImageIndex === i ? 'bg-secondary text-white' : 'bg-black/40 text-white opacity-0 group-hover:opacity-100'}`}>
                                     {coverImageIndex === i ? 'Foto Principal' : 'Definir Principal'}
                                 </div>
                             </div>
@@ -416,8 +446,16 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
                     <div onClick={() => fileInputRef.current?.click()} className="w-24 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors text-gray-400">
                         <Upload size={24}/>
                         <span className="text-[8px] font-bold mt-1">ADD FOTO</span>
+                        <span className="text-[6px] opacity-60">PNG / JPG</span>
                     </div>
-                    <input type="file" ref={fileInputRef} onChange={handleUpload} multiple className="hidden" />
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleUpload} 
+                        multiple 
+                        accept="image/png, image/jpeg, image/jpg, image/webp"
+                        className="hidden" 
+                    />
                 </div>
             </div>
 

@@ -7,6 +7,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -175,7 +176,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Outros Endpoints (Referências e Produtos seguem a mesma lógica anterior)
+// Outros Endpoints
 app.get('/api/references', async (req, res) => {
   const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
   res.json(rows);
@@ -228,10 +229,20 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
 });
-const upload = multer({ storage });
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Formato de arquivo não suportado. Use JPG, PNG ou WEBP.'), false);
+  }
+};
+
+const upload = multer({ storage, fileFilter });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Sem arquivo' });
+  if (!req.file) return res.status(400).json({ error: 'Sem arquivo ou formato inválido' });
   res.json({ url: `/api/uploads/${req.file.filename}` });
 });
 
