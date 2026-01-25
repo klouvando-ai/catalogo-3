@@ -236,7 +236,7 @@ app.post('/api/references', async (req, res) => {
   try {
     const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
     await pool.query('INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors || null, createdAt]);
+      [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors || []), createdAt]);
     res.status(201).json(req.body);
   } catch (error) {
     console.error('Error creating reference:', error);
@@ -248,7 +248,7 @@ app.put('/api/references/:id', async (req, res) => {
   try {
     const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
     await pool.query('UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
-      [code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors || null, req.params.id]);
+      [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors || []), req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating reference:', error);
@@ -281,7 +281,7 @@ app.post('/api/products', async (req, res) => {
   try {
     const { id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
     await pool.query('INSERT INTO \`products\` (id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, description, fabric, categoryIds || null, images || null, coverImageIndex, isFeatured, referenceIds || null, createdAt]);
+      [id, name, description, fabric, JSON.stringify(categoryIds || []), JSON.stringify(images || []), coverImageIndex, isFeatured, JSON.stringify(referenceIds || []), createdAt]);
     res.status(201).json(req.body);
   } catch (error) {
     console.error('Error creating product:', error);
@@ -293,7 +293,7 @@ app.put('/api/products/:id', async (req, res) => {
   try {
     const { name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds } = req.body;
     await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, categoryIds=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
-      [name, description, fabric, categoryIds || null, images || null, coverImageIndex, isFeatured, referenceIds || null, req.params.id]);
+      [name, description, fabric, JSON.stringify(categoryIds || []), JSON.stringify(images || []), coverImageIndex, isFeatured, JSON.stringify(referenceIds || []), req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error(`Error updating product ${req.params.id}:`, error);
