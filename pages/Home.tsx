@@ -6,7 +6,7 @@ import ProductCard from '../components/ProductCard';
 import { Search } from 'lucide-react';
 
 const Home: React.FC = () => {
-  const { products } = useData();
+  const { products, categories } = useData();
   const [searchParams] = useSearchParams();
   const activeCategory = searchParams.get('category') || 'Todos';
   const searchQuery = searchParams.get('q') || '';
@@ -20,10 +20,16 @@ const Home: React.FC = () => {
   }, [products]);
 
   const filteredProducts = useMemo(() => {
+    const activeCategoryObj = categories.find(c => c.name === activeCategory);
+    const activeCategoryId = activeCategoryObj?.id;
+
     return sortedProducts.filter(p => {
-      if (activeCategory !== 'Todos') {
-        if (p.category !== activeCategory) return false;
+      if (activeCategory !== 'Todos' && activeCategoryId) {
+        if (!p.categoryIds?.includes(activeCategoryId)) {
+          return false;
+        }
       }
+
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         if (p.name.toLowerCase().includes(q)) return true;
@@ -34,7 +40,7 @@ const Home: React.FC = () => {
       }
       return true;
     });
-  }, [sortedProducts, activeCategory, searchQuery]);
+  }, [sortedProducts, activeCategory, searchQuery, categories]);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 md:py-10">

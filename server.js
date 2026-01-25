@@ -61,7 +61,7 @@ async function initDB() {
         name VARCHAR(255) NOT NULL,
         description TEXT,
         fabric VARCHAR(255),
-        category VARCHAR(100),
+        categoryIds JSON,
         images JSON,
         coverImageIndex INT DEFAULT 0,
         isFeatured BOOLEAN DEFAULT FALSE,
@@ -207,16 +207,16 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.post('/api/products', async (req, res) => {
-  const { id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
-  await pool.query('INSERT INTO \`products\` (id, name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), createdAt]);
+  const { id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
+  await pool.query('INSERT INTO \`products\` (id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt]);
   res.status(201).json(req.body);
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  const { name, description, fabric, category, images, coverImageIndex, isFeatured, referenceIds } = req.body;
-  await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, category=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
-    [name, description, fabric, category, JSON.stringify(images), coverImageIndex, isFeatured, JSON.stringify(referenceIds), req.params.id]);
+  const { name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds } = req.body;
+  await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, categoryIds=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
+    [name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, req.params.id]);
   res.json({ success: true });
 });
 

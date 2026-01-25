@@ -57,7 +57,7 @@ export interface Product {
   name: string;
   description: string;
   fabric: string;
-  category: string;
+  categoryIds: string[];
   images: string[]; 
   coverImageIndex: number;
   isFeatured: boolean;

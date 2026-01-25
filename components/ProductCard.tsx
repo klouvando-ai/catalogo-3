@@ -3,6 +3,7 @@ import React from 'react';
 import { Product, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { useData } from '../context/DataContext';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +11,7 @@ interface ProductCardProps {
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { user } = useAuth();
+  const { categories } = useData();
 
   const getPriceRange = () => {
     if (!user) return null;
@@ -31,10 +33,18 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     return `R$ ${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}`;
   };
 
+  const getPrimaryCategoryName = () => {
+    if (!product.categoryIds || product.categoryIds.length === 0) return 'Sem Categoria';
+    const primaryCategoryId = product.categoryIds[0];
+    const category = categories.find(c => c.id === primaryCategoryId);
+    return category ? category.name : '';
+  };
+
   const coverImage = product.images[product.coverImageIndex] || product.images[0];
   const priceDisplay = getPriceRange();
   const sizesAvailable = Array.from(new Set(product.variants.map(v => v.sizeRange)));
   const references = Array.from(new Set(product.variants.map(v => v.reference)));
+  const primaryCategoryName = getPrimaryCategoryName();
 
   return (
     <Link to={`/product/${product.id}`} className="group block bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100">
@@ -58,9 +68,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       <div className="p-3 md:p-4">
-        <div className="mb-0.5 text-[10px] text-secondary font-bold uppercase tracking-wide truncate">
-            {product.category}
-        </div>
+        {primaryCategoryName && (
+          <div className="mb-0.5 text-[10px] text-secondary font-bold uppercase tracking-wide truncate">
+              {primaryCategoryName}
+          </div>
+        )}
         <h3 className="text-sm md:text-lg font-medium text-gray-900 group-hover:text-secondary truncate leading-tight">
           {product.name}
         </h3>

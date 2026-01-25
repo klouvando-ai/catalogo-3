@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { UserRole } from '../types';
+import { UserRole, Category } from '../types';
 import { ChevronLeft, Edit, Share2 } from 'lucide-react';
 
 const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { getProduct } = useData();
+  const { getProduct, categories } = useData();
   const { user } = useAuth();
   const product = getProduct(id || '');
   const [activeImageIndex, setActiveImageIndex] = useState(product?.coverImageIndex || 0);
@@ -16,6 +16,15 @@ const ProductDetails: React.FC = () => {
   if (!product) {
     return <div className="p-10 text-center font-serif">Produto não encontrado.</div>;
   }
+
+  const getProductCategories = () => {
+    if (!product.categoryIds) return [];
+    return product.categoryIds.map(id => {
+        return categories.find(c => c.id === id);
+    }).filter((c): c is Category => !!c);
+  };
+
+  const productCategories = getProductCategories();
 
   const handleShare = () => {
     if (navigator.share) {
@@ -75,8 +84,10 @@ const ProductDetails: React.FC = () => {
 
         {/* Info: Padding on mobile */}
         <div className="px-5 md:px-0 pt-6">
-           <div className="mb-2">
-             <span className="text-xs font-bold text-secondary uppercase tracking-widest">{product.category}</span>
+           <div className="mb-3 flex flex-wrap gap-2">
+             {productCategories.map(cat => (
+                <span key={cat.id} className="text-xs font-bold text-secondary uppercase tracking-widest bg-secondary/10 px-3 py-1 rounded-full">{cat.name}</span>
+             ))}
            </div>
            <h1 className="text-2xl md:text-4xl font-serif font-bold text-gray-900 mb-4">{product.name}</h1>
            

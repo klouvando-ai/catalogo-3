@@ -57,6 +57,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const mappedProducts: Product[] = rawProds.map((item: any) => {
         const referenceIds = safeParse(item.referenceIds);
         const images = safeParse(item.images);
+        const categoryIds = safeParse(item.categoryIds);
         const dynamicVariants: ProductVariant[] = [];
         referenceIds.forEach((refId: string) => {
           const refDef = mappedRefs.find((r: any) => r.id === refId);
@@ -68,7 +69,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             });
           }
         });
-        return { ...item, images, referenceIds, isFeatured: Boolean(item.isFeatured), variants: dynamicVariants };
+        return { ...item, images, referenceIds, categoryIds, isFeatured: Boolean(item.isFeatured), variants: dynamicVariants };
       });
       setProducts(mappedProducts);
     } catch (error) {

@@ -299,7 +299,7 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [name, setName] = useState('');
-    const [category, setCategory] = useState('');
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
     const [description, setDescription] = useState('');
     const [fabric, setFabric] = useState('');
     const [images, setImages] = useState<string[]>([]);
@@ -309,12 +309,11 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if(categories.length > 0 && !category) setCategory(categories[0].name);
         if (productId) {
             const p = getProduct(productId);
             if (p) { 
                 setName(p.name); 
-                setCategory(p.category); 
+                setSelectedCategoryIds(p.categoryIds || []); 
                 setImages(p.images); 
                 setSelectedRefIds(p.referenceIds || []); 
                 setDescription(p.description || ''); 
@@ -323,11 +322,10 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
                 setIsFeatured(p.isFeatured || false);
             }
         }
-    }, [productId, getProduct, categories]);
+    }, [productId, getProduct]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files) return;
-        // Fix: Explicitly cast file to File to prevent 'unknown' type error during iteration
         for (const file of Array.from(e.target.files)) {
             try {
                 const url = await api.upload(file as File);
@@ -336,6 +334,14 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
                 alert('Erro ao enviar imagem. Certifique-se de que é um formato válido (JPG, PNG ou WEBP).');
             }
         }
+    };
+
+    const handleCategoryToggle = (categoryId: string) => {
+        setSelectedCategoryIds(prev => 
+            prev.includes(categoryId) 
+                ? prev.filter(id => id !== categoryId) 
+                : [...prev, categoryId]
+        );
     };
 
     const handleRemoveImage = (index: number) => {
@@ -353,25 +359,24 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!name || images.length === 0 || selectedRefIds.length === 0) {
-            alert('Preencha nome, fotos e vincule ao menos uma referência.');
+        if(!name || images.length === 0 || selectedRefIds.length === 0 || selectedCategoryIds.length === 0) {
+            alert('Preencha nome, fotos, referências e pelo menos uma categoria.');
             return;
         }
         setIsSaving(true);
-        const p: Product = { 
+        const p: Omit<Product, 'variants'> = { 
             id: productId || crypto.randomUUID(), 
             name, 
             description, 
             fabric, 
-            category, 
+            categoryIds: selectedCategoryIds, 
             images, 
             coverImageIndex, 
             isFeatured, 
             referenceIds: selectedRefIds, 
-            variants: [], 
             createdAt: Date.now() 
         };
-        productId ? await updateProduct(p) : await addProduct(p);
+        productId ? await updateProduct(p as Product) : await addProduct(p as Product);
         navigate('/');
     };
 
@@ -408,14 +413,21 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
 
                 <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="Título Comercial do Produto" className="w-full border p-3 rounded-xl text-sm" />
                 
-                <div className="grid grid-cols-2 gap-3">
-                    <select value={category} onChange={e => setCategory(e.target.value)} className="border p-3 rounded-xl text-sm bg-white">
-                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                    <input type="text" value={fabric} onChange={e => setFabric(e.target.value)} placeholder="Tecido (ex: Linho)" className="border p-3 rounded-xl text-sm" />
-                </div>
+                <input type="text" value={fabric} onChange={e => setFabric(e.target.value)} placeholder="Tecido (ex: Linho)" className="w-full border p-3 rounded-xl text-sm" />
 
                 <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição curta..." className="w-full border p-3 rounded-xl text-sm h-24" />
+            </div>
+
+            <div className="space-y-3">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Categorias (Selecione uma ou mais)</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-3 bg-accent/30 rounded-2xl border border-gray-100 no-scrollbar">
+                    {categories.map(cat => (
+                        <div key={cat.id} onClick={() => handleCategoryToggle(cat.id)} className={`p-2.5 border rounded-xl text-center text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-2 ${selectedCategoryIds.includes(cat.id) ? 'bg-primary text-white border-primary shadow-md' : 'bg-white text-gray-600 border-gray-200 shadow-sm'}`}>
+                            {selectedCategoryIds.includes(cat.id) && <CheckCircle2 size={12} />}
+                            {cat.name}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="space-y-3">
