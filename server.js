@@ -117,114 +117,201 @@ initDB();
 
 // Endpoints Categorias
 app.get('/api/categories', async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM categories ORDER BY orderIndex ASC');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT * FROM categories ORDER BY orderIndex ASC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.post('/api/categories', async (req, res) => {
-  const { id, name, orderIndex } = req.body;
-  await pool.query('INSERT INTO categories (id, name, orderIndex) VALUES (?, ?, ?)', [id, name, orderIndex]);
-  res.status(201).json(req.body);
+  try {
+    const { id, name, orderIndex } = req.body;
+    await pool.query('INSERT INTO categories (id, name, orderIndex) VALUES (?, ?, ?)', [id, name, orderIndex]);
+    res.status(201).json(req.body);
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.put('/api/categories/:id', async (req, res) => {
-  const { name, orderIndex } = req.body;
-  await pool.query('UPDATE categories SET name=?, orderIndex=? WHERE id=?', [name, orderIndex, req.params.id]);
-  res.json({ success: true });
+  try {
+    const { name, orderIndex } = req.body;
+    await pool.query('UPDATE categories SET name=?, orderIndex=? WHERE id=?', [name, orderIndex, req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.delete('/api/categories/:id', async (req, res) => {
-  await pool.query('DELETE FROM categories WHERE id=?', [req.params.id]);
-  res.json({ success: true });
+  try {
+    await pool.query('DELETE FROM categories WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Endpoints Usuários
 app.get('/api/users', async (req, res) => {
-  const [rows] = await pool.query('SELECT id, username, role, createdAt FROM users ORDER BY createdAt DESC');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT id, username, role, createdAt FROM users ORDER BY createdAt DESC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.post('/api/users', async (req, res) => {
-  const { id, username, password, role, createdAt } = req.body;
-  await pool.query('INSERT INTO users (id, username, password, role, createdAt) VALUES (?, ?, ?, ?, ?)', [id, username, password, role, createdAt]);
-  res.status(201).json(req.body);
+  try {
+    const { id, username, password, role, createdAt } = req.body;
+    await pool.query('INSERT INTO users (id, username, password, role, createdAt) VALUES (?, ?, ?, ?, ?)', [id, username, password, role, createdAt]);
+    res.status(201).json(req.body);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.put('/api/users/:id', async (req, res) => {
-  const { username, password, role } = req.body;
-  if (password) {
-    await pool.query('UPDATE users SET username=?, password=?, role=? WHERE id=?', [username, password, role, req.params.id]);
-  } else {
-    await pool.query('UPDATE users SET username=?, role=? WHERE id=?', [username, role, req.params.id]);
+  try {
+    const { username, password, role } = req.body;
+    if (password) {
+      await pool.query('UPDATE users SET username=?, password=?, role=? WHERE id=?', [username, password, role, req.params.id]);
+    } else {
+      await pool.query('UPDATE users SET username=?, role=? WHERE id=?', [username, role, req.params.id]);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Database error' });
   }
-  res.json({ success: true });
 });
 
 app.delete('/api/users/:id', async (req, res) => {
-  await pool.query('DELETE FROM users WHERE id=?', [req.params.id]);
-  res.json({ success: true });
-});
-
-// Login Database-backed
-app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  const [rows] = await pool.query('SELECT username, role FROM users WHERE username=? AND password=?', [username, password]);
-  if (rows.length > 0) {
-    res.json(rows[0]);
-  } else {
-    res.status(401).json({ error: 'Invalido' });
+  try {
+    await pool.query('DELETE FROM users WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 
-// Outros Endpoints
+// Login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const [rows] = await pool.query('SELECT username, role FROM users WHERE username=? AND password=?', [username, password]);
+    if (rows.length > 0) {
+      res.json(rows[0]);
+    } else {
+      res.status(401).json({ error: 'Invalido' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+// Referências
 app.get('/api/references', async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT * FROM \`references\` ORDER BY createdAt DESC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching references:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.post('/api/references', async (req, res) => {
-  const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
-  await pool.query('INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), createdAt]);
-  res.status(201).json(req.body);
+  try {
+    const { id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt } = req.body;
+    await pool.query('INSERT INTO \`references\` (id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors || []), createdAt]);
+    res.status(201).json(req.body);
+  } catch (error) {
+    console.error('Error creating reference:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.put('/api/references/:id', async (req, res) => {
-  const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
-  await pool.query('UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
-    [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors), req.params.id]);
-  res.json({ success: true });
+  try {
+    const { code, name, category, sizeRange, priceRepresentative, priceSacoleira, colors } = req.body;
+    await pool.query('UPDATE \`references\` SET code=?, name=?, category=?, sizeRange=?, priceRepresentative=?, priceSacoleira=?, colors=? WHERE id=?',
+      [code, name, category, sizeRange, priceRepresentative, priceSacoleira, JSON.stringify(colors || []), req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating reference:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.delete('/api/references/:id', async (req, res) => {
-  await pool.query('DELETE FROM \`references\` WHERE id=?', [req.params.id]);
-  res.json({ success: true });
+  try {
+    await pool.query('DELETE FROM \`references\` WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting reference:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
+// Produtos
 app.get('/api/products', async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM \`products\` ORDER BY isFeatured DESC, createdAt DESC');
-  res.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT * FROM \`products\` ORDER BY isFeatured DESC, createdAt DESC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 app.post('/api/products', async (req, res) => {
-  const { id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
-  await pool.query('INSERT INTO \`products\` (id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt]);
-  res.status(201).json(req.body);
+  try {
+    const { id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt } = req.body;
+    await pool.query('INSERT INTO \`products\` (id, name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, description, fabric, JSON.stringify(categoryIds || []), JSON.stringify(images || []), coverImageIndex, isFeatured, JSON.stringify(referenceIds || []), createdAt]);
+    res.status(201).json(req.body);
+  } catch (error) {
+    console.error('Error creating product:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
 });
 
 app.put('/api/products/:id', async (req, res) => {
-  const { name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds } = req.body;
-  await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, categoryIds=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
-    [name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds, req.params.id]);
-  res.json({ success: true });
+  try {
+    const { name, description, fabric, categoryIds, images, coverImageIndex, isFeatured, referenceIds } = req.body;
+    await pool.query('UPDATE \`products\` SET name=?, description=?, fabric=?, categoryIds=?, images=?, coverImageIndex=?, isFeatured=?, referenceIds=? WHERE id=?',
+      [name, description, fabric, JSON.stringify(categoryIds || []), JSON.stringify(images || []), coverImageIndex, isFeatured, JSON.stringify(referenceIds || []), req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`Error updating product ${req.params.id}:`, error);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
-  await pool.query('DELETE FROM \`products\` WHERE id=?', [req.params.id]);
-  res.json({ success: true });
+  try {
+    await pool.query('DELETE FROM \`products\` WHERE id=?', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
+// Upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
