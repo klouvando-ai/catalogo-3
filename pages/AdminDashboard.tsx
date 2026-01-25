@@ -364,20 +364,32 @@ const ProductForm: React.FC<{ productId?: string }> = ({ productId }) => {
             return;
         }
         setIsSaving(true);
-        const p: Omit<Product, 'variants'> = { 
-            id: productId || crypto.randomUUID(), 
-            name, 
-            description, 
-            fabric, 
-            categoryIds: selectedCategoryIds, 
-            images, 
-            coverImageIndex, 
-            isFeatured, 
-            referenceIds: selectedRefIds, 
-            createdAt: Date.now() 
-        };
-        productId ? await updateProduct(p as Product) : await addProduct(p as Product);
-        navigate('/');
+        try {
+            const productData: Omit<Product, 'variants' | 'createdAt'> & { createdAt?: number } = { 
+                id: productId || crypto.randomUUID(), 
+                name, 
+                description, 
+                fabric, 
+                categoryIds: selectedCategoryIds, 
+                images, 
+                coverImageIndex, 
+                isFeatured, 
+                referenceIds: selectedRefIds,
+            };
+
+            if (productId) {
+                await updateProduct(productData as Product);
+            } else {
+                productData.createdAt = Date.now();
+                await addProduct(productData as Product);
+            }
+            navigate('/');
+        } catch (error) {
+            console.error('Failed to save product:', error);
+            alert('Não foi possível salvar o produto. Verifique sua conexão e tente novamente.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
